@@ -43,7 +43,6 @@ pip install -r requirements.txt
 3. Click **Get API Key** → **Create API key**
 4. Copy the key (starts with `AIza...`)
 
-> 💡 No credit card required — Gemini API is free to use!
 
 ### 3. Run the app
 
