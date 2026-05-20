@@ -1,7 +1,8 @@
 import json
 from datetime import datetime, timedelta
 import random
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
 # ─────────────────────────────────────────────
 # Mock Commerce Database
@@ -49,7 +50,7 @@ MOCK_PRODUCTS = {
     },
     "running-shoes": {
         "name": "Running Shoes", "price": 120.00, "in_stock": True,
-        "description": "Lightweight and breathable running shoes with cushioned sole. Available in sizes 6–13.",
+        "description": "Lightweight and breathable running shoes with cushioned sole. Available in sizes 6-13.",
         "warranty": "6 months", "return_window_days": 60,
     },
     "coffee-maker": {
@@ -59,7 +60,7 @@ MOCK_PRODUCTS = {
     },
     "bluetooth-speaker": {
         "name": "Bluetooth Speaker", "price": 59.99, "in_stock": True,
-        "description": "Portable waterproof speaker with 360° sound and 12-hour playtime.",
+        "description": "Portable waterproof speaker with 360 sound and 12-hour playtime.",
         "warranty": "1 year", "return_window_days": 30,
     },
     "sports-socks": {
@@ -75,9 +76,9 @@ RETURN_POLICIES = {
     "non_returnable": "Items marked as final sale or opened software cannot be returned.",
     "process": (
         "To initiate a return: (1) Contact support with your order ID. "
-        "(2) We'll email a prepaid return label within 24 hours. "
+        "(2) We will email a prepaid return label within 24 hours. "
         "(3) Drop off the package at any courier location. "
-        "(4) Refund is processed within 5–7 business days after we receive the item."
+        "(4) Refund is processed within 5-7 business days after we receive the item."
     ),
 }
 
@@ -93,26 +94,18 @@ def track_order(order_id: str) -> dict:
         return {"error": f"No order found with ID '{order_id}'. Please check the order ID and try again."}
     return order
 
-
 def initiate_return(order_id: str, reason: str) -> dict:
     order = MOCK_ORDERS.get(order_id.upper())
     if not order:
         return {"error": f"Order '{order_id}' not found."}
-    if order["status"] not in ("delivered",):
-        return {
-            "error": f"Order '{order_id}' cannot be returned — current status is '{order['status']}'. "
-                     "Only delivered orders are eligible for returns."
-        }
+    if order["status"] != "delivered":
+        return {"error": f"Order '{order_id}' cannot be returned - current status is '{order['status']}'. Only delivered orders are eligible."}
     ref = f"RET-{random.randint(10000, 99999)}"
     return {
-        "return_reference": ref,
-        "order_id": order_id,
-        "reason": reason,
-        "status": "initiated",
-        "next_steps": RETURN_POLICIES["process"],
-        "refund_eta": "5–7 business days after item is received",
+        "return_reference": ref, "order_id": order_id, "reason": reason,
+        "status": "initiated", "next_steps": RETURN_POLICIES["process"],
+        "refund_eta": "5-7 business days after item is received",
     }
-
 
 def get_product_info(product_name: str) -> dict:
     keyword = product_name.lower().replace(" ", "-")
@@ -122,11 +115,7 @@ def get_product_info(product_name: str) -> dict:
     for key, product in MOCK_PRODUCTS.items():
         if any(word in product["name"].lower() for word in product_name.lower().split()):
             return product
-    return {
-        "error": f"No product found matching '{product_name}'. "
-                 "Available products: Wireless Headphones, Running Shoes, Coffee Maker, Bluetooth Speaker, Sports Socks."
-    }
-
+    return {"error": f"No product found matching '{product_name}'. Available: Wireless Headphones, Running Shoes, Coffee Maker, Bluetooth Speaker, Sports Socks."}
 
 def get_return_policy(query: str = "") -> dict:
     return {
@@ -136,24 +125,19 @@ def get_return_policy(query: str = "") -> dict:
         "return_process": RETURN_POLICIES["process"],
     }
 
-
 def file_complaint(customer_name: str, issue_description: str, order_id: str = None) -> dict:
     ticket_id = f"TKT-{random.randint(100000, 999999)}"
     COMPLAINT_TICKETS[ticket_id] = {
-        "ticket_id": ticket_id,
-        "customer_name": customer_name,
-        "issue": issue_description,
-        "order_id": order_id,
-        "status": "open",
+        "ticket_id": ticket_id, "customer_name": customer_name,
+        "issue": issue_description, "order_id": order_id, "status": "open",
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
     }
     return {
         "ticket_id": ticket_id,
-        "message": f"Your complaint has been filed. Ticket ID: {ticket_id}.",
+        "message": f"Complaint filed. Ticket ID: {ticket_id}.",
         "response_time": "A support agent will contact you within 24 hours.",
         "status": "open",
     }
-
 
 TOOL_MAP = {
     "track_order": track_order,
@@ -164,68 +148,62 @@ TOOL_MAP = {
 }
 
 # ─────────────────────────────────────────────
-# Gemini Tool Declarations
+# Tool Declarations for new SDK
 # ─────────────────────────────────────────────
 
 TOOLS = [
-    {
-        "name": "track_order",
-        "description": "Look up the status, items, tracking number, and estimated delivery of a customer order using the order ID.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "order_id": {"type": "string", "description": "The order ID, e.g. ORD-1001"}
+    types.FunctionDeclaration(
+        name="track_order",
+        description="Look up the status, items, tracking number, and estimated delivery of a customer order.",
+        parameters=types.Schema(
+            type=types.Type.OBJECT,
+            properties={"order_id": types.Schema(type=types.Type.STRING, description="The order ID e.g. ORD-1001")},
+            required=["order_id"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name="initiate_return",
+        description="Initiate a return or refund request for a delivered order.",
+        parameters=types.Schema(
+            type=types.Type.OBJECT,
+            properties={
+                "order_id": types.Schema(type=types.Type.STRING, description="The order ID to return"),
+                "reason": types.Schema(type=types.Type.STRING, description="The reason for the return"),
             },
-            "required": ["order_id"],
-        },
-    },
-    {
-        "name": "initiate_return",
-        "description": "Initiate a return or refund request for a delivered order.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "order_id": {"type": "string", "description": "The order ID to return"},
-                "reason": {"type": "string", "description": "The reason for the return"},
+            required=["order_id", "reason"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name="get_product_info",
+        description="Retrieve product details including price, stock, description, warranty, and return window.",
+        parameters=types.Schema(
+            type=types.Type.OBJECT,
+            properties={"product_name": types.Schema(type=types.Type.STRING, description="Product name or keyword")},
+            required=["product_name"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name="get_return_policy",
+        description="Get the store's return and refund policy details.",
+        parameters=types.Schema(
+            type=types.Type.OBJECT,
+            properties={"query": types.Schema(type=types.Type.STRING, description="Optional question about policy")},
+            required=[],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name="file_complaint",
+        description="File a formal complaint or escalation ticket on behalf of the customer.",
+        parameters=types.Schema(
+            type=types.Type.OBJECT,
+            properties={
+                "customer_name": types.Schema(type=types.Type.STRING, description="Customer's name"),
+                "issue_description": types.Schema(type=types.Type.STRING, description="Description of the complaint"),
+                "order_id": types.Schema(type=types.Type.STRING, description="Related order ID if applicable"),
             },
-            "required": ["order_id", "reason"],
-        },
-    },
-    {
-        "name": "get_product_info",
-        "description": "Retrieve details about a product including price, stock, description, warranty, and return window.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "product_name": {"type": "string", "description": "Product name or keyword to search"}
-            },
-            "required": ["product_name"],
-        },
-    },
-    {
-        "name": "get_return_policy",
-        "description": "Get the store's return and refund policy details.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "query": {"type": "string", "description": "Specific question about the return policy (optional)"}
-            },
-            "required": [],
-        },
-    },
-    {
-        "name": "file_complaint",
-        "description": "File a formal complaint or escalation ticket on behalf of the customer.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "customer_name": {"type": "string", "description": "Customer's name"},
-                "issue_description": {"type": "string", "description": "Detailed description of the complaint"},
-                "order_id": {"type": "string", "description": "Related order ID if applicable"},
-            },
-            "required": ["customer_name", "issue_description"],
-        },
-    },
+            required=["customer_name", "issue_description"],
+        ),
+    ),
 ]
 
 SYSTEM_PROMPT = """You are a friendly and professional AI Customer Support Agent for ShopEase, an online commerce store.
@@ -252,50 +230,46 @@ Sample order IDs for demo: ORD-1001 (shipped), ORD-1002 (processing), ORD-1003 (
 
 class CommerceAgent:
     def __init__(self, api_key: str):
-        genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel(
-            model_name="gemini-1.5-flash",
-            system_instruction=SYSTEM_PROMPT,
-            tools=[{"function_declarations": TOOLS}],
-        )
-        self.chat = self.model.start_chat(history=[])
+        self.client = genai.Client(api_key=api_key)
+        self.history = []
+        self.tool_config = types.Tool(function_declarations=TOOLS)
 
     def reset(self):
-        self.chat = self.model.start_chat(history=[])
+        self.history = []
 
     def ask(self, user_message: str) -> str:
-        response = self.chat.send_message(user_message)
+        self.history.append(types.Content(role="user", parts=[types.Part(text=user_message)]))
 
-        # Handle tool calls in a loop
         while True:
-            # Check if any part has a function call
-            has_tool_call = False
-            tool_results = []
+            response = self.client.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=self.history,
+                config=types.GenerateContentConfig(
+                    system_instruction=SYSTEM_PROMPT,
+                    tools=[self.tool_config],
+                ),
+            )
 
-            for part in response.parts:
-                if hasattr(part, "function_call") and part.function_call.name:
-                    has_tool_call = True
+            candidate = response.candidates[0]
+            self.history.append(candidate.content)
+
+            # Check for function calls
+            function_calls = [p for p in candidate.content.parts if p.function_call]
+
+            if function_calls:
+                tool_results = []
+                for part in function_calls:
                     fn = part.function_call
                     tool_fn = TOOL_MAP.get(fn.name)
-                    if tool_fn:
-                        args = dict(fn.args)
-                        result = tool_fn(**args)
-                    else:
-                        result = {"error": f"Unknown tool: {fn.name}"}
-
+                    args = dict(fn.args) if fn.args else {}
+                    result = tool_fn(**args) if tool_fn else {"error": f"Unknown tool: {fn.name}"}
                     tool_results.append(
-                        genai.protos.Part(
-                            function_response=genai.protos.FunctionResponse(
-                                name=fn.name,
-                                response={"result": json.dumps(result)},
-                            )
-                        )
+                        types.Part(function_response=types.FunctionResponse(
+                            name=fn.name,
+                            response={"result": json.dumps(result)},
+                        ))
                     )
-
-            if has_tool_call and tool_results:
-                response = self.chat.send_message(tool_results)
+                self.history.append(types.Content(role="user", parts=tool_results))
             else:
-                break
-
-        # Extract final text
-        return response.text
+                # Return final text
+                return response.text
