@@ -1,7 +1,7 @@
-import anthropic
 import json
 from datetime import datetime, timedelta
 import random
+import google.generativeai as genai
 
 # ─────────────────────────────────────────────
 # Mock Commerce Database
@@ -84,109 +84,7 @@ RETURN_POLICIES = {
 COMPLAINT_TICKETS = {}
 
 # ─────────────────────────────────────────────
-# Tool Definitions
-# ─────────────────────────────────────────────
-
-TOOLS = [
-    {
-        "name": "track_order",
-        "description": (
-            "Look up the status, items, tracking number, and estimated delivery "
-            "of a customer order using the order ID."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "order_id": {
-                    "type": "string",
-                    "description": "The order ID, e.g. ORD-1001",
-                }
-            },
-            "required": ["order_id"],
-        },
-    },
-    {
-        "name": "initiate_return",
-        "description": (
-            "Initiate a return or refund request for a delivered order. "
-            "Returns a confirmation number and next steps."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "order_id": {
-                    "type": "string",
-                    "description": "The order ID to return",
-                },
-                "reason": {
-                    "type": "string",
-                    "description": "The reason for the return (e.g. defective, wrong item, changed mind)",
-                },
-            },
-            "required": ["order_id", "reason"],
-        },
-    },
-    {
-        "name": "get_product_info",
-        "description": (
-            "Retrieve details about a product including price, stock availability, "
-            "description, warranty, and return window."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "product_name": {
-                    "type": "string",
-                    "description": "Product name or keyword to search (e.g. 'headphones', 'coffee maker')",
-                }
-            },
-            "required": ["product_name"],
-        },
-    },
-    {
-        "name": "get_return_policy",
-        "description": "Get the store's return and refund policy details.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "Specific question about the return policy (optional)",
-                }
-            },
-            "required": [],
-        },
-    },
-    {
-        "name": "file_complaint",
-        "description": (
-            "File a formal complaint or escalation ticket on behalf of the customer. "
-            "Use this for serious issues like damaged items, billing errors, or repeated problems."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "customer_name": {
-                    "type": "string",
-                    "description": "Customer's name",
-                },
-                "issue_description": {
-                    "type": "string",
-                    "description": "Detailed description of the complaint",
-                },
-                "order_id": {
-                    "type": "string",
-                    "description": "Related order ID if applicable",
-                },
-            },
-            "required": ["customer_name", "issue_description"],
-        },
-    },
-]
-
-
-# ─────────────────────────────────────────────
-# Tool Execution Logic
+# Tool Functions
 # ─────────────────────────────────────────────
 
 def track_order(order_id: str) -> dict:
@@ -218,11 +116,9 @@ def initiate_return(order_id: str, reason: str) -> dict:
 
 def get_product_info(product_name: str) -> dict:
     keyword = product_name.lower().replace(" ", "-")
-    # Try exact match first
     for key, product in MOCK_PRODUCTS.items():
         if keyword in key or any(word in key for word in keyword.split("-")):
             return product
-    # Try partial name match
     for key, product in MOCK_PRODUCTS.items():
         if any(word in product["name"].lower() for word in product_name.lower().split()):
             return product
@@ -250,7 +146,6 @@ def file_complaint(customer_name: str, issue_description: str, order_id: str = N
         "order_id": order_id,
         "status": "open",
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
-        "assigned_to": "Support Team",
     }
     return {
         "ticket_id": ticket_id,
@@ -260,102 +155,147 @@ def file_complaint(customer_name: str, issue_description: str, order_id: str = N
     }
 
 
-def execute_tool(tool_name: str, tool_input: dict) -> str:
-    try:
-        if tool_name == "track_order":
-            result = track_order(**tool_input)
-        elif tool_name == "initiate_return":
-            result = initiate_return(**tool_input)
-        elif tool_name == "get_product_info":
-            result = get_product_info(**tool_input)
-        elif tool_name == "get_return_policy":
-            result = get_return_policy(**tool_input)
-        elif tool_name == "file_complaint":
-            result = file_complaint(**tool_input)
-        else:
-            result = {"error": f"Unknown tool: {tool_name}"}
-    except Exception as e:
-        result = {"error": str(e)}
-    return json.dumps(result, indent=2)
-
+TOOL_MAP = {
+    "track_order": track_order,
+    "initiate_return": initiate_return,
+    "get_product_info": get_product_info,
+    "get_return_policy": get_return_policy,
+    "file_complaint": file_complaint,
+}
 
 # ─────────────────────────────────────────────
-# Agent Core
+# Gemini Tool Declarations
 # ─────────────────────────────────────────────
+
+TOOLS = [
+    {
+        "name": "track_order",
+        "description": "Look up the status, items, tracking number, and estimated delivery of a customer order using the order ID.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "order_id": {"type": "string", "description": "The order ID, e.g. ORD-1001"}
+            },
+            "required": ["order_id"],
+        },
+    },
+    {
+        "name": "initiate_return",
+        "description": "Initiate a return or refund request for a delivered order.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "order_id": {"type": "string", "description": "The order ID to return"},
+                "reason": {"type": "string", "description": "The reason for the return"},
+            },
+            "required": ["order_id", "reason"],
+        },
+    },
+    {
+        "name": "get_product_info",
+        "description": "Retrieve details about a product including price, stock, description, warranty, and return window.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "product_name": {"type": "string", "description": "Product name or keyword to search"}
+            },
+            "required": ["product_name"],
+        },
+    },
+    {
+        "name": "get_return_policy",
+        "description": "Get the store's return and refund policy details.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Specific question about the return policy (optional)"}
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "file_complaint",
+        "description": "File a formal complaint or escalation ticket on behalf of the customer.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "customer_name": {"type": "string", "description": "Customer's name"},
+                "issue_description": {"type": "string", "description": "Detailed description of the complaint"},
+                "order_id": {"type": "string", "description": "Related order ID if applicable"},
+            },
+            "required": ["customer_name", "issue_description"],
+        },
+    },
+]
 
 SYSTEM_PROMPT = """You are a friendly and professional AI Customer Support Agent for ShopEase, an online commerce store.
 
 Your job is to help customers with:
-- **Order Tracking**: Look up order status, estimated delivery, and tracking numbers.
-- **Returns & Refunds**: Initiate return requests and explain the refund process.
-- **Product Q&A**: Answer questions about products, availability, pricing, and warranty.
-- **Complaints & Escalation**: File formal complaint tickets for serious issues and ensure the customer feels heard.
+- Order Tracking: Look up order status, estimated delivery, and tracking numbers.
+- Returns & Refunds: Initiate return requests and explain the refund process.
+- Product Q&A: Answer questions about products, availability, pricing, and warranty.
+- Complaints & Escalation: File formal complaint tickets for serious issues.
 
 Guidelines:
 - Always be empathetic, patient, and solution-focused.
 - Use the available tools to fetch real data — don't make up order details.
 - If a customer seems frustrated, acknowledge their feelings before jumping to solutions.
 - For complaints, always file a ticket using the file_complaint tool.
-- Keep responses clear and concise — avoid overly long replies.
-- If you don't know something, say so honestly and offer to escalate.
+- Keep responses clear and concise.
 
 Sample order IDs for demo: ORD-1001 (shipped), ORD-1002 (processing), ORD-1003 (delivered), ORD-1004 (cancelled)"""
 
 
+# ─────────────────────────────────────────────
+# Agent Core
+# ─────────────────────────────────────────────
+
 class CommerceAgent:
     def __init__(self, api_key: str):
-        self.client = anthropic.Anthropic(api_key=api_key)
-        self.conversation_history = []
+        genai.configure(api_key=api_key)
+        self.model = genai.GenerativeModel(
+            model_name="gemini-1.5-flash",
+            system_instruction=SYSTEM_PROMPT,
+            tools=[{"function_declarations": TOOLS}],
+        )
+        self.chat = self.model.start_chat(history=[])
 
     def reset(self):
-        self.conversation_history = []
+        self.chat = self.model.start_chat(history=[])
 
-    def chat(self, user_message: str) -> str:
-        self.conversation_history.append({"role": "user", "content": user_message})
+    def ask(self, user_message: str) -> str:
+        response = self.chat.send_message(user_message)
 
+        # Handle tool calls in a loop
         while True:
-            response = self.client.messages.create(
-                model="claude-sonnet-4-20250514",
-                max_tokens=1024,
-                system=SYSTEM_PROMPT,
-                tools=TOOLS,
-                messages=self.conversation_history,
-            )
+            # Check if any part has a function call
+            has_tool_call = False
+            tool_results = []
 
-            # If Claude wants to use a tool
-            if response.stop_reason == "tool_use":
-                # Add Claude's response (with tool_use blocks) to history
-                self.conversation_history.append({
-                    "role": "assistant",
-                    "content": response.content,
-                })
+            for part in response.parts:
+                if hasattr(part, "function_call") and part.function_call.name:
+                    has_tool_call = True
+                    fn = part.function_call
+                    tool_fn = TOOL_MAP.get(fn.name)
+                    if tool_fn:
+                        args = dict(fn.args)
+                        result = tool_fn(**args)
+                    else:
+                        result = {"error": f"Unknown tool: {fn.name}"}
 
-                # Execute each tool and collect results
-                tool_results = []
-                for block in response.content:
-                    if block.type == "tool_use":
-                        tool_output = execute_tool(block.name, block.input)
-                        tool_results.append({
-                            "type": "tool_result",
-                            "tool_use_id": block.id,
-                            "content": tool_output,
-                        })
+                    tool_results.append(
+                        genai.protos.Part(
+                            function_response=genai.protos.FunctionResponse(
+                                name=fn.name,
+                                response={"result": json.dumps(result)},
+                            )
+                        )
+                    )
 
-                # Add tool results to history and loop back
-                self.conversation_history.append({
-                    "role": "user",
-                    "content": tool_results,
-                })
-
+            if has_tool_call and tool_results:
+                response = self.chat.send_message(tool_results)
             else:
-                # Final text response
-                final_text = ""
-                for block in response.content:
-                    if hasattr(block, "text"):
-                        final_text += block.text
+                break
 
-                self.conversation_history.append({
-                    "role": "assistant",
-                    "content": final_text,
-                })
-                return final_text
+        # Extract final text
+        return response.text
