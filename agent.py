@@ -242,7 +242,7 @@ class CommerceAgent:
 
         while True:
             response = self.client.models.generate_content(
-                model="gemini-2.0-flash",
+                model="gemini-2.0-flash-lite",
                 contents=self.history,
                 config=types.GenerateContentConfig(
                     system_instruction=SYSTEM_PROMPT,
