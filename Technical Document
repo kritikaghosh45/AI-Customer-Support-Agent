@@ -1,0 +1,145 @@
+# AI Customer Support Agent for Commerce
+
+## 1. Architecture Overview
+
+```
+User (Browser)
+     │
+     ▼
+Streamlit Web UI (app.py)
+     │
+     ▼
+CommerceAgent (agent.py)
+     │
+     ├── Google Gemini API (gemini-2.0-flash-lite)
+     │        │
+     │        ▼
+     │   Function Calling (Tool Use)
+     │        │
+     ▼        ▼
+Mock Commerce Database
+(Orders, Products, Policies)
+```
+
+---
+
+## 2. Components
+
+### 2.1 `app.py` — Streamlit Web UI
+- Renders the chat interface
+- Manages session state (conversation history)
+- Takes API key input from sidebar
+- Displays user and assistant messages with avatars
+- Provides reset conversation button
+
+### 2.2 `agent.py` — Core Agent Logic
+Contains three main parts:
+
+**Mock Database:**
+- `MOCK_ORDERS` — 4 sample orders with different statuses
+- `MOCK_PRODUCTS` — 5 products with full details
+- `RETURN_POLICIES` — policy text and return process steps
+- `COMPLAINT_TICKETS` — in-memory complaint storage
+
+**Tool Functions:**
+| Function | Input | Output |
+|----------|-------|--------|
+| `track_order(order_id)` | Order ID string | Order details dict |
+| `initiate_return(order_id, reason)` | Order ID + reason | Return reference + next steps |
+| `get_product_info(product_name)` | Product name/keyword | Product details dict |
+| `get_return_policy(query)` | Optional query | Full policy dict |
+| `file_complaint(customer_name, issue, order_id)` | Customer info | Ticket ID + confirmation |
+
+**CommerceAgent Class:**
+- Initializes Gemini client
+- Maintains conversation history
+- Runs tool-use loop until final text response
+
+---
+
+## 3. Tool-Use Flow
+
+```
+1. User sends message
+2. Gemini analyzes intent
+3. If tool needed → Gemini returns function_call
+4. Agent executes the tool with provided args
+5. Tool result sent back to Gemini
+6. Gemini generates final natural language response
+7. Response displayed to user
+```
+
+This loop continues until Gemini returns a text response with no function calls.
+
+---
+
+## 4. Implementation Decisions
+
+### 4.1 Google GenAI SDK (new)
+Used `google-genai>=1.0.0` (new SDK) instead of the deprecated `google-generativeai`. The new SDK uses `genai.Client` and `types.FunctionDeclaration` for tool definitions.
+
+### 4.2 Model: gemini-2.0-flash-lite
+- Chosen for its higher free tier quota vs `gemini-2.0-flash`
+- Fast response times suitable for chat
+- Supports function calling
+
+### 4.3 Conversation History
+Full conversation history (including tool calls and results) is passed to Gemini on every request. This gives the model context for multi-turn conversations.
+
+### 4.4 In-Memory State
+Session state is managed by Streamlit's `st.session_state`. Complaint tickets are stored in a Python dict — sufficient for demo purposes.
+
+---
+
+## 5. Failure Handling
+
+| Failure | Handling |
+|---------|---------|
+| Invalid order ID | Tool returns error dict → Gemini tells user politely |
+| Return on non-delivered order | Tool returns error with current status |
+| Product not found | Tool returns available products list |
+| Invalid API key | Streamlit shows error message |
+| Quota exceeded | Error displayed with retry suggestion |
+| Unknown tool call | Returns `{"error": "Unknown tool"}` |
+
+---
+
+## 6. Limitations
+
+| Limitation | Description |
+|-----------|-------------|
+| Mock data only | No real database — orders/products are hardcoded |
+| No authentication | Anyone with the app URL can access it |
+| No persistence | Conversation resets on page refresh |
+| Free tier quota | Limited API calls per day on free Gemini tier |
+| English only | No multi-language support |
+| No file uploads | Cannot process images of damaged products |
+
+---
+
+## 7. How to Extend
+
+### Connect a Real Database
+Replace mock dicts in `agent.py` with actual DB queries:
+```python
+def track_order(order_id: str) -> dict:
+    return db.query("SELECT * FROM orders WHERE id = ?", order_id)
+```
+
+### Add New Tools
+1. Write the Python function
+2. Add `FunctionDeclaration` to `TOOLS` list
+3. Add entry to `TOOL_MAP`
+
+### Deploy to Production
+- Add `secrets.toml` for API key management
+- Use PostgreSQL for persistent storage
+- Add user authentication with `streamlit-authenticator`
+
+---
+
+## 8. Dependencies
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `google-genai` | >=1.0.0 | Google Gemini AI API |
+| `streamlit` | >=1.35.0 | Web UI framework |
