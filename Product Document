@@ -1,0 +1,84 @@
+# AI Customer Support Agent for Commerce
+
+## 1. Overview
+**Product Name:** ShopEase AI Customer Support Agent
+**Built by:** Kritika Ghosh
+**Date:** May 2026
+**Tech Stack:** Python, Google Gemini AI, Streamlit
+
+---
+
+## 2. Problem Statement
+E-commerce businesses struggle to provide 24/7 customer support at scale. Hiring human agents is expensive, and customers expect instant responses at any time of day. Common issues like order tracking, return requests, and product queries are repetitive and time-consuming for support teams.
+
+---
+
+## 3. Who Is This For?
+| User | Need |
+|------|------|
+| **Customers** | Instant answers about orders, products, and returns without waiting |
+| **E-commerce businesses** | Reduce support costs, handle high volumes automatically |
+| **Small online stores** | Affordable AI support without hiring a full team |
+
+---
+
+## 4. What Was Built
+An AI-powered customer support chatbot that handles the four most common e-commerce support scenarios:
+
+### Features
+| Feature | Description |
+|---------|-------------|
+| 📦 Order Tracking | Customer provides order ID → agent fetches real-time status, delivery date, tracking number |
+| ↩️ Returns & Refunds | Agent initiates return requests, provides reference numbers and next steps |
+| 🔍 Product Q&A | Answers questions about product specs, pricing, availability, and warranty |
+| 🎫 Complaints & Escalation | Files formal complaint tickets with unique IDs for serious issues |
+
+---
+
+## 5. Why These Features?
+These four features cover **80% of all e-commerce support queries** based on industry data:
+- Order status is the #1 customer query
+- Returns/refunds is the #2 most common issue
+- Product questions happen pre-purchase and affect conversion
+- Complaint handling prevents customer churn
+
+---
+
+## 6. Key Design Decisions
+
+### Decision 1: Tool-Use Architecture
+Instead of training a custom model, we use Gemini's **function calling** feature. The AI decides when to call which tool, making the system flexible and easy to extend.
+
+### Decision 2: Google Gemini (Free Tier)
+Chosen over OpenAI and Anthropic because it has a **free tier** — making the project accessible without any payment required.
+
+### Decision 3: Streamlit for UI
+Streamlit was chosen over Flask/FastAPI because it allows building a professional web UI with minimal code, letting us focus on the AI logic.
+
+### Decision 4: Mock Database
+A mock database was used to demonstrate the concept without requiring a real backend. This makes the project easy to run locally and extend later.
+
+---
+
+## 7. Scope & Limitations
+**In scope:**
+- Text-based customer support chat
+- 4 core commerce workflows
+- Mock order/product data
+
+**Out of scope (future work):**
+- Real database integration
+- User authentication
+- Email/SMS notifications
+- Multi-language support
+- Voice support
+
+---
+
+## 8. Success Metrics
+| Metric | Target |
+|--------|--------|
+| Response accuracy | Correct tool called for query |
+| Response time | Under 3 seconds per query |
+| Coverage | Handles all 4 support categories |
+| Usability | Non-technical users can operate it |
