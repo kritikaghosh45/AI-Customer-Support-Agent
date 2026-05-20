@@ -1,0 +1,68 @@
+# Decision Log
+
+## Project: AI Customer Support Agent for Commerce
+
+> A record of key decisions made during the project — what was considered, what was chosen, and why.
+
+---
+
+## Decision 1: AI Provider
+**Considered:** Anthropic Claude API, OpenAI GPT, Google Gemini
+**Chose:** Google Gemini (gemini-2.0-flash-lite)
+**Because:** Gemini offers a free tier with no credit card required, making the project fully accessible. Anthropic and OpenAI require payment to use the API.
+
+---
+
+## Decision 2: UI Framework
+**Considered:** Flask, FastAPI + React, Gradio, Streamlit
+**Chose:** Streamlit
+**Because:** Streamlit allows building a professional chat UI with minimal code. It handles session state, layout, and components out of the box — letting us focus on AI logic rather than frontend development.
+
+---
+
+## Decision 3: Agent Architecture
+**Considered:** Prompt-only (no tools), RAG (retrieval-augmented), Tool-use (function calling)
+**Chose:** Tool-use / Function calling
+**Because:** Tool-use allows the AI to call specific functions to fetch real data, making responses accurate and grounded. Prompt-only would require hardcoding all data into the prompt, which doesn't scale. RAG was overkill for this use case.
+
+---
+
+## Decision 4: Mock vs Real Database
+**Considered:** SQLite, PostgreSQL, Mock Python dicts
+**Chose:** Mock Python dicts
+**Because:** The goal was to demonstrate the AI agent concept, not build a full backend. Mock data keeps the project simple, easy to run locally, and focused on the AI layer. Real database integration is documented as a future extension.
+
+---
+
+## Decision 5: Number of Tools
+**Considered:** 2 tools (track + return), 5 tools, 8+ tools
+**Chose:** 5 tools (track_order, initiate_return, get_product_info, get_return_policy, file_complaint)
+**Because:** These 5 tools cover the 4 most common e-commerce support scenarios. More tools would add complexity without covering significantly more use cases for a demo project.
+
+---
+
+## Decision 6: Google GenAI SDK Version
+**Considered:** `google-generativeai` (old), `google-genai` (new)
+**Chose:** `google-genai>=1.0.0` (new SDK)
+**Because:** The old `google-generativeai` library was deprecated in late 2025. The new `google-genai` SDK is the officially supported library and supports the latest Gemini models.
+
+---
+
+## Decision 7: Gemini Model
+**Considered:** gemini-2.0-flash, gemini-2.0-flash-lite, gemini-1.5-pro
+**Chose:** gemini-2.0-flash-lite
+**Because:** `gemini-2.0-flash` hit free tier quota limits quickly during testing. `gemini-2.0-flash-lite` has a higher free tier quota, is faster, and is sufficient for customer support chat use cases. `gemini-1.5-pro` is more powerful but has lower free tier limits.
+
+---
+
+## Decision 8: Conversation History Management
+**Considered:** No history (single-turn), Last N messages, Full history
+**Chose:** Full history
+**Because:** Customer support conversations need full context — a customer might say "return that order" referring to an order mentioned earlier. Full history ensures the agent always has complete context for accurate responses.
+
+---
+
+## Decision 9: Error Handling Strategy
+**Considered:** Raise exceptions, Return error strings, Return error dicts
+**Chose:** Return error dicts from tools
+**Because:** When tools return structured error dicts, Gemini can read them and respond to the user in natural language. Raising exceptions would crash the app; error strings work but are less structured.
