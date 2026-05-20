@@ -102,11 +102,4 @@ The agent uses **Gemini's function calling (tool use)** feature:
 - **Email notifications**: Send return/complaint confirmations via email
 - **Deploy online**: Host for free on [Streamlit Cloud](https://streamlit.io/cloud)
 
-  ## Screenshot
-
-  <img width="1138" height="642" alt="image" src="https://github.com/user-attachments/assets/79fb0e69-765e-4d6b-b839-cf7212b9e924" />
-
-  Sidebar
-  <img width="360" height="870" alt="image" src="https://github.com/user-attachments/assets/19a9c0e9-1e1c-4f40-a12a-f2c687ebf7c5" />
-
-
+ 
