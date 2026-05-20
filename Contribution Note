@@ -1,0 +1,32 @@
+# Contribution Note
+
+## Project: AI Customer Support Agent for Commerce
+**Contributor:** Kritika Ghosh
+**Type:** Solo Project
+
+---
+
+## Time Split
+
+| Area | Time % | Activities |
+|------|--------|-----------|
+| **Product Thinking** | 25% | Defining problem, identifying key customer support use cases, choosing features, scoping the project |
+| **Architecture & Design** | 15% | Deciding tech stack, choosing AI provider, designing tool-use flow, planning mock database |
+| **Engineering** | 40% | Building agent logic, implementing 5 tools, Streamlit UI, tool-use loop, error handling |
+| **Testing & Debugging** | 15% | Testing all 4 support scenarios, fixing API/SDK issues, handling edge cases |
+| **Documentation** | 5% | Writing README, product doc, technical doc, decision log |
+
+---
+
+## Product Thinking Contributions
+- Identified the 4 most common e-commerce support scenarios (order tracking, returns, product Q&A, complaints)
+- Decided to use mock data to keep the project runnable without a real backend
+- Chose free-tier Gemini API to make the project accessible to everyone
+- Designed the conversation flow to be empathetic and solution-focused via system prompt
+
+## Engineering Contributions
+- Implemented `CommerceAgent` class with full tool-use loop
+- Built 5 tool functions with proper error handling
+- Created Streamlit UI with chat interface, sidebar config, and session management
+- Migrated from deprecated `google-generativeai` to new `google-genai` SDK
+- Switched model from `gemini-2.0-flash` to `gemini-2.0-flash-lite` to handle free tier quota limits
