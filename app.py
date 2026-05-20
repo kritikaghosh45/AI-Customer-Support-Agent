@@ -15,8 +15,6 @@ st.set_page_config(
 # ─────────────────────────────────────────────
 st.markdown("""
 <style>
-    .main { background-color: #f8f9fa; }
-    .stChatMessage { border-radius: 12px; }
     .header-box {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         padding: 1.5rem 2rem;
@@ -62,16 +60,17 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────
-# API Key Input (Sidebar)
+# Sidebar
 # ─────────────────────────────────────────────
 with st.sidebar:
     st.header("⚙️ Configuration")
     api_key = st.text_input(
-        "Anthropic API Key",
+        "Google Gemini API Key",
         type="password",
-        placeholder="sk-ant-...",
-        help="Get your key at console.anthropic.com",
+        placeholder="AIza...",
+        help="Get your free key at aistudio.google.com",
     )
+    st.caption("🆓 Free at [aistudio.google.com](https://aistudio.google.com)")
     st.divider()
     st.markdown("**🧪 Demo Order IDs**")
     st.markdown("""
@@ -103,7 +102,6 @@ with st.sidebar:
 # ─────────────────────────────────────────────
 if "messages" not in st.session_state:
     st.session_state.messages = []
-
 if "agent" not in st.session_state:
     st.session_state.agent = None
 
@@ -133,25 +131,21 @@ for msg in st.session_state.messages:
 # ─────────────────────────────────────────────
 if prompt := st.chat_input("How can we help you today?"):
     if not api_key:
-        st.error("⚠️ Please enter your Anthropic API key in the sidebar to get started.")
+        st.error("⚠️ Please enter your Google Gemini API key in the sidebar. Get it free at aistudio.google.com")
         st.stop()
 
-    # Init agent if needed
     if st.session_state.agent is None:
         st.session_state.agent = CommerceAgent(api_key=api_key)
 
-    # Show user message
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user", avatar="🧑"):
         st.markdown(prompt)
 
-    # Get agent response
     with st.chat_message("assistant", avatar="🛍️"):
         with st.spinner("Looking into that for you..."):
             try:
-                response = st.session_state.agent.chat(prompt)
+                response = st.session_state.agent.ask(prompt)
                 st.markdown(response)
                 st.session_state.messages.append({"role": "assistant", "content": response})
             except Exception as e:
-                err_msg = f"⚠️ Error: {str(e)}"
-                st.error(err_msg)
+                st.error(f"⚠️ Error: {str(e)}")
